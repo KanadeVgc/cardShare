@@ -60,7 +60,7 @@ public static class SceneBuilder
         }
 
         // Canvas（1080×1920 直式）
-        var canvasGO = new GameObject("Canvas");
+        var canvasGO = new GameObject("Canvas", typeof(RectTransform));
         var canvas   = canvasGO.AddComponent<Canvas>();
         canvas.renderMode = RenderMode.ScreenSpaceOverlay;
 
@@ -71,21 +71,35 @@ public static class SceneBuilder
         canvasGO.AddComponent<GraphicRaycaster>();
 
         var root = canvasGO.transform;
-
+        
         // ── 全畫面背景 ──
         MakeFullBG(root);
 
+        var mainMenuPanel = CreateUIObject("MainMenuPanel",root);
+        StretchFull(mainMenuPanel);
+
+
+        var gamePanel = CreateUIObject("GamePanel",root);
+        StretchFull(gamePanel);
+   
+
+        mainMenuPanel.gameObject.SetActive(true);
+        gamePanel.gameObject.SetActive(false);
+        
+
+
         // ── 建各區塊 ──
-        var infoPanel   = BuildInfoPanel(root);
-        var handPanel   = BuildHandPanel(root);
-        var slotPanel   = BuildSlotPanel(root);
-        var btnPanel    = BuildButtonPanel(root);
+        var infoPanel   = BuildInfoPanel(gamePanel);
+        var handPanel   = BuildHandPanel(gamePanel);
+        var slotPanel   = BuildSlotPanel(gamePanel);
+        var btnPanel    = BuildButtonPanel(gamePanel);
 
         // ── 取得元件 ──
         var targetTMP  = infoPanel.Find("TargetText")       .GetComponent<TextMeshProUGUI>();
         var exprTMP    = infoPanel.Find("ExpressionText")   .GetComponent<TextMeshProUGUI>();
         var curTMP     = infoPanel.Find("CurrentResultText").GetComponent<TextMeshProUGUI>();
         var fbTMP      = infoPanel.Find("FeedbackText")     .GetComponent<TextMeshProUGUI>();
+        var questionTMP = infoPanel.Find("QuestionText")    .GetComponent<TextMeshProUGUI>();    
 
         var cardImages     = new Image[4];
         var cardDraggables = new CardDraggable[4];
@@ -115,6 +129,9 @@ public static class SceneBuilder
         gm.expressionText    = exprTMP;
         gm.currentResultText = curTMP;
         gm.feedbackText      = fbTMP;
+        gm.mainMenuPanel = mainMenuPanel.gameObject;
+        gm.gamePanel = gamePanel.gameObject;   
+        gm.questionText      = questionTMP;
         gm.cardImages        = cardImages;
         gm.cardDraggables    = cardDraggables;
         gm.slots             = cardSlots;
@@ -123,6 +140,7 @@ public static class SceneBuilder
         gm.allCards          = allCards;
         gm.currentDifficulty = GameManager.Difficulty.Easy;
 
+
         UnityEditor.SceneManagement.EditorSceneManager.MarkSceneDirty(
             UnityEditor.SceneManagement.EditorSceneManager.GetActiveScene());
 
@@ -130,6 +148,9 @@ public static class SceneBuilder
         EditorUtility.DisplayDialog("CardShare 場景建置完成",
             $"✅ 建置成功！載入 {allCards.Length} 張牌。\n\n" +
             "按 ▶ Play 開始遊戲。\n\n快捷鍵：\n  Space = 新題目\n  R = 重置", "OK");
+        BuildMainMenu(mainMenuPanel, gm);
+
+        mainMenuPanel.SetAsLastSibling();
     }
 
     // ════════════════════════════════════════════════════════
@@ -172,6 +193,12 @@ public static class SceneBuilder
         // FeedbackText
         MakeTMP(panel, "FeedbackText", "",
             0f, 0f, 1f, 0.16f, 36, C_GREEN, FontStyles.Bold, TextAlignmentOptions.Center);
+        
+        //位置
+        MakeTMP(panel, "QuestionText", "1/10",
+            0.72f, 0.82f, 0.96f, 0.98f,
+            28, C_WHITE, FontStyles.Bold,
+            TextAlignmentOptions.TopRight);
 
         return panel;
     }
@@ -415,6 +442,7 @@ public static class SceneBuilder
         img.color = color;
 
         var btn = go.AddComponent<Button>();
+        btn.targetGraphic = img;
         var cb  = ColorBlock.defaultColorBlock;
         cb.normalColor      = color;
         cb.highlightedColor = color * 1.25f;
@@ -445,6 +473,133 @@ public static class SceneBuilder
     {
         ColorUtility.TryParseHtmlString(hex, out var c);
         return c;
+    }
+    static void BuildMainMenu(Transform root, GameManager gm)
+    {
+        MakeTMP(root,
+            "Title",
+            "Puzzle Mystery",
+            0.2f, 0.72f, 0.8f, 0.9f,
+            72,
+            C_GOLD,
+            FontStyles.Bold,
+            TextAlignmentOptions.Center);
+
+        gm.easyButton =
+            CreateMenuButton(root, gm,
+            "EasyButton", "Easy",
+            0.35f, 0.52f,
+            GameManager.Difficulty.Easy);
+
+        gm.mediumButton =
+            CreateMenuButton(root, gm,
+            "MediumButton", "Medium",
+            0.35f, 0.40f,
+            GameManager.Difficulty.Medium);
+
+        gm.hardButton =
+            CreateMenuButton(root, gm,
+            "HardButton", "Hard",
+            0.35f, 0.28f,
+            GameManager.Difficulty.Hard);
+
+        gm.expertButton =
+            CreateMenuButton(root, gm,
+            "ExpertButton", "Expert",
+            0.35f, 0.16f,
+            GameManager.Difficulty.Expert);
+    }
+
+   static Button CreateMenuButton(
+        Transform root,
+        GameManager gm,
+        string name,
+        string text,
+        float x,
+        float y,
+        GameManager.Difficulty difficulty)
+    {
+        var btnGO = CreateUIObject(name, root);
+
+        SetAnchor(btnGO, x, y, x + 0.3f, y + 0.08f);
+
+        var img = btnGO.gameObject.AddComponent<Image>();
+        img.color = new Color(0.1f, 0.25f, 0.6f);
+
+        var btn = btnGO.gameObject.AddComponent<Button>();
+        btn.targetGraphic = img;
+
+        MakeTMP(btnGO,
+            "Text",
+            text,
+            0f, 0f, 1f, 1f,
+            36,
+            C_WHITE,
+            FontStyles.Bold,
+            TextAlignmentOptions.Center);
+
+        return btn;
+
+        // btn.onClick.AddListener(() =>
+        // {
+        //     Debug.Log("Easy Clicked");
+        //     switch (difficulty)
+        //     {
+        //         case GameManager.Difficulty.Easy:
+        //             GameManager.Instance.StartEasy();
+        //             break;
+
+        //         case GameManager.Difficulty.Medium:
+        //             GameManager.Instance.StartMedium();
+        //             break;
+
+        //         case GameManager.Difficulty.Hard:
+        //             GameManager.Instance.StartHard();
+        //             break;
+
+        //         case GameManager.Difficulty.Expert:
+        //             GameManager.Instance.StartExpert();
+        //             break;
+        //     }
+        // });
+    }
+    static Transform CreateUIObject(string name, Transform parent)
+    {
+        var go = new GameObject(name);
+        go.transform.SetParent(parent, false);
+
+        var rt = go.AddComponent<RectTransform>();
+        rt.localScale = Vector3.one;
+        rt.localPosition = Vector3.zero;
+
+        return go.transform;
+    }
+
+    static void StretchFull(Transform t)
+    {
+        var rt = t.GetComponent<RectTransform>();
+
+        rt.anchorMin = Vector2.zero;
+        rt.anchorMax = Vector2.one;
+
+        rt.offsetMin = Vector2.zero;
+        rt.offsetMax = Vector2.zero;
+    }
+
+    static void SetAnchor(
+        Transform t,
+        float xmin,
+        float ymin,
+        float xmax,
+        float ymax)
+    {
+        var rt = t.GetComponent<RectTransform>();
+
+        rt.anchorMin = new Vector2(xmin, ymin);
+        rt.anchorMax = new Vector2(xmax, ymax);
+
+        rt.offsetMin = Vector2.zero;
+        rt.offsetMax = Vector2.zero;
     }
 }
 #endif

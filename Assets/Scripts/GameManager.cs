@@ -29,12 +29,15 @@ public class GameManager : MonoBehaviour
     public enum Difficulty { Easy, Medium, Hard, Expert }
     public Difficulty currentDifficulty;
 
+    
+
     // ── Inspector References ───────────────────────────────
     [Header("UI - Info")]
     public TextMeshProUGUI targetText;
     public TextMeshProUGUI expressionText;   // 隱藏數字的題目
     public TextMeshProUGUI currentResultText; // 即時顯示 Current Result
-    public TextMeshProUGUI feedbackText;      // 成功 / 錯誤 提示
+    public TextMeshProUGUI feedbackText;    // 成功 / 錯誤 提示
+    public TextMeshProUGUI questionText;      //題數
 
     [Header("UI - Hand Cards")]
     public Image[] cardImages;               // 4 張手牌圖片
@@ -47,12 +50,23 @@ public class GameManager : MonoBehaviour
     public Button resetButton;               // 重置本局
     public Button newPuzzleButton;           // 新題目
 
+    [Header("UI - Panels")]
+    public GameObject mainMenuPanel;
+    public GameObject gamePanel;
+
+    [Header("Menu Buttons")]
+    public Button easyButton;
+    public Button mediumButton;
+    public Button hardButton;
+    public Button expertButton;
+
     [Header("Card Data")]
     public CardData[] allCards;              // 全部 52 張牌
 
     // ── Runtime State ──────────────────────────────────────
     private List<CardData> solutionCards = new List<CardData>(); // expression 裡 a,b,c,d 對應的牌
     private List<CardData> displayCards  = new List<CardData>(); // 玩家看到的手牌（打亂順序）
+
 
     private int    target;
     private string expression;       // 完整 expression（含數字）
@@ -64,6 +78,18 @@ public class GameManager : MonoBehaviour
     // 目前選中的手牌（-1 = 無）
     private int selectedHandIndex = -1;
 
+    //判定限制(讓玩家在判定期間不亂點)
+    private bool isCheckingAnswer = false;
+
+    //新增一次出幾題
+    private int currentQuestion = 1;
+    private int totalQuestions = 5;
+    private int correctAnswers = 0;
+
+    //時間與答錯幾題
+    private int wrongAnswers = 0;
+    private float startTime;
+    private bool isGameFinished = false;
     // ── Patterns ───────────────────────────────────────────
     string[] patterns =
     {
@@ -94,13 +120,40 @@ public class GameManager : MonoBehaviour
         // 設定按鈕
         if (resetButton    != null) resetButton.onClick.AddListener(ResetCurrentPuzzle);
         if (newPuzzleButton != null) newPuzzleButton.onClick.AddListener(GeneratePuzzle);
+        if (easyButton != null)
+            easyButton.onClick.AddListener(StartEasy);
 
+        if (mediumButton != null)
+            mediumButton.onClick.AddListener(StartMedium);
+
+        if (hardButton != null)
+            hardButton.onClick.AddListener(StartHard);
+
+        if (expertButton != null)
+            expertButton.onClick.AddListener(StartExpert);
         // 設定 SlotClickReceiver 索引
         for (int i = 0; i < slots.Length; i++)
             slots[i].slotIndex = i;
 
-        GeneratePuzzle();
+        startTime = Time.time;
+        mainMenuPanel.SetActive(true);
+        gamePanel.SetActive(false);
     }
+    // void ShowPanel(GameObject panel, bool show)
+    // {
+    //     if (panel == null) return;
+
+    //     var cg = panel.GetComponent<CanvasGroup>();
+
+    //     if (cg == null) return;
+
+    //     cg.alpha = show ? 1 : 0;
+    //     cg.interactable = show;
+    //     cg.blocksRaycasts = show;
+
+    //     if (show)
+    //         panel.transform.SetAsLastSibling();
+    // }
 
     void Update()
     {
@@ -116,6 +169,11 @@ public class GameManager : MonoBehaviour
     // ══════════════════════════════════════════════════════
     void GeneratePuzzle()
     {
+        Debug.Log("GeneratePuzzle Called");
+        isGameFinished = false;
+
+        resetButton.interactable = true;
+        newPuzzleButton.interactable = true;
         bool valid = false;
 
         while (!valid)
@@ -178,6 +236,7 @@ public class GameManager : MonoBehaviour
         UpdateCardsUI();
         UpdateCurrentResult();
         SetFeedback("");
+        UpdateQuestionUI();
     }
 
     // ══════════════════════════════════════════════════════
@@ -189,6 +248,8 @@ public class GameManager : MonoBehaviour
     /// </summary>
     public void OnHandCardClicked(int handIndex)
     {
+        if (isCheckingAnswer) return;
+        if (isGameFinished) return;
         // 若此牌已放入 Slot，點擊就退回手牌
         if (handCardSlotMap[handIndex] != -1)
         {
@@ -219,6 +280,8 @@ public class GameManager : MonoBehaviour
     /// </summary>
     public void OnSlotClicked(int slotIndex)
     {
+        if (isCheckingAnswer) return;
+        if (isGameFinished) return;
         // 若 Slot 已有牌 → 退回手牌
         if (!slots[slotIndex].IsEmpty)
         {
@@ -241,6 +304,7 @@ public class GameManager : MonoBehaviour
     /// </summary>
     public void OnHandCardDroppedOnSlot(int handIndex, int slotIndex)
     {
+        if (isGameFinished) return;
         // 已放入其他 Slot → 先退回
         if (handCardSlotMap[handIndex] != -1)
             ReturnCardFromSlot(handIndex);
@@ -406,9 +470,49 @@ public class GameManager : MonoBehaviour
                 : result.ToString("F2"));
 
             if (result % 1 == 0 && (int)result == target)
-                SetFeedback("Correct!  Target reached!");
+            {
+                feedbackText.color = Color.green;
+                SetFeedback("✔ Correct!  Target reached!");
+                correctAnswers++;
+                if (currentQuestion < totalQuestions)
+                {
+                    currentQuestion++;
+                    StartCoroutine(NextPuzzleRoutine());
+                }
+                else
+                {
+                    isGameFinished = true;
+
+                    resetButton.interactable = false;
+                    newPuzzleButton.interactable = false;
+
+                    float totalTime = Time.time - startTime;
+                    int totlaAttempts = correctAnswers + wrongAnswers;
+                    float accuracy = totlaAttempts > 0
+                        ? (float)correctAnswers/totlaAttempts*100f
+                        :0f;
+                    int minutes = Mathf.FloorToInt(totalTime / 60);
+                    int seconds = Mathf.FloorToInt(totalTime % 60);
+                    isGameFinished = true;
+                    SetFeedback(        
+                        $"Finished! " +
+                        $"Correct: {correctAnswers}/{totalQuestions}  " +
+                        $"Wrong: {wrongAnswers}  " +
+                        $"Accuracy: {accuracy:F1}% " +
+                        $"Time: {minutes:00}:{seconds:00}");
+                }
+            }
             else
-                SetFeedback($"X  Result {(result % 1 == 0 ? ((int)result).ToString() : result.ToString("F2"))} != Target {target}");
+            {
+                feedbackText.color = Color.red;
+                wrongAnswers++;
+                SetFeedback($"X Wrong : Result {(result % 1 == 0 ? ((int)result).ToString() : result.ToString("F2"))} ≠ Target {target}");
+                
+
+                if (!isCheckingAnswer)
+                    StartCoroutine(WrongAnswerRoutine());
+            }
+                
         }
         catch
         {
@@ -559,4 +663,72 @@ public class GameManager : MonoBehaviour
             .Replace("+", " + ")
             .Replace("-", " − ");
     }
+    //答錯機制
+    IEnumerator WrongAnswerRoutine()
+    {
+        isCheckingAnswer = true;
+
+        yield return new WaitForSeconds(1.2f);
+
+        ResetCurrentPuzzle();
+
+        isCheckingAnswer = false;
+    }
+    //題數更新
+    void UpdateQuestionUI()
+    {
+        if(questionText != null)
+        questionText.text = $"{currentQuestion} / {totalQuestions}";
+    }
+
+    //答對自動跳題
+    IEnumerator NextPuzzleRoutine()
+    {
+        isCheckingAnswer = true;
+        yield return new WaitForSeconds(1.5f);
+
+        GeneratePuzzle();
+
+        isCheckingAnswer = false;
+    }
+    public void StartEasy()
+    {
+        Debug.Log("START EASY");
+        currentDifficulty = Difficulty.Easy;
+        StartGame();
+    }
+
+    public void StartMedium()
+    {
+        currentDifficulty = Difficulty.Medium;
+        StartGame();
+    }
+
+    public void StartHard()
+    {
+        currentDifficulty = Difficulty.Hard;
+        StartGame();
+    }
+
+    public void StartExpert()
+    {
+        currentDifficulty = Difficulty.Expert;
+        StartGame();
+    }
+
+    public void StartGame()
+    {
+        Debug.Log("StartGame Called");
+        currentQuestion = 1;
+        correctAnswers = 0;
+        wrongAnswers = 0;
+
+        startTime = Time.time;
+
+        mainMenuPanel.SetActive(false);
+        gamePanel.SetActive(true);
+
+        GeneratePuzzle();
+    }
+
 }
