@@ -3,7 +3,24 @@ guid: ebf112051839c72459fd5d4dcd3b47e0
 MonoImporter:
   externalObjects: {}
   serializedVersion: 2
-  defaultReferences: []
+  defaultReferences:
+  - targetText: {instanceID: 0}
+  - expressionText: {instanceID: 0}
+  - currentResultText: {instanceID: 0}
+  - feedbackText: {instanceID: 0}
+  - questionText: {instanceID: 0}
+  - resetButton: {instanceID: 0}
+  - newPuzzleButton: {instanceID: 0}
+  - mainMenuPanel: {instanceID: 0}
+  - gamePanel: {instanceID: 0}
+  - endPanel: {instanceID: 0}
+  - endSummaryText: {instanceID: 0}
+  - backToMenuButton: {instanceID: 0}
+  - restartButton: {instanceID: 0}
+  - easyButton: {instanceID: 0}
+  - mediumButton: {instanceID: 0}
+  - hardButton: {instanceID: 0}
+  - expertButton: {instanceID: 0}
   executionOrder: 0
   icon: {instanceID: 0}
   userData: 

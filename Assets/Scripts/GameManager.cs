@@ -53,6 +53,22 @@ public class GameManager : MonoBehaviour
     [Header("UI - Panels")]
     public GameObject mainMenuPanel;
     public GameObject gamePanel;
+<<<<<<< Updated upstream
+=======
+    public GameObject startPanel; 
+    public Button startButton;
+
+    [Header("UI - Instruction Panel")]
+    public GameObject instructionPanel;       // 遊戲說明面板
+    public Button openInstructionButton;      // 開啟說明按鈕
+    public Button closeInstructionButton;     // 關閉說明按鈕
+
+    [Header("UI - End Panel")]
+    public GameObject endPanel;
+    public TextMeshProUGUI endSummaryText;
+    public Button backToMenuButton;
+    public Button restartButton; 
+>>>>>>> Stashed changes
 
     [Header("Menu Buttons")]
     public Button easyButton;
@@ -118,10 +134,27 @@ public class GameManager : MonoBehaviour
     void Start()
     {
         // 設定按鈕
+        if (startPanel    != null) startPanel.SetActive(true);
+        if (mainMenuPanel != null) mainMenuPanel.SetActive(false);
+        if (gamePanel     != null) gamePanel.SetActive(false);
+        if (endPanel      != null) endPanel.SetActive(false);
+        if (instructionPanel != null) instructionPanel.SetActive(false);
+        if (startButton != null) startButton.onClick.AddListener(ShowDifficultyMenu);
+        if (openInstructionButton  != null) openInstructionButton.onClick.AddListener(OpenInstruction);
+        if (closeInstructionButton != null) closeInstructionButton.onClick.AddListener(CloseInstruction);
         if (resetButton    != null) resetButton.onClick.AddListener(ResetCurrentPuzzle);
         if (newPuzzleButton != null) newPuzzleButton.onClick.AddListener(GeneratePuzzle);
+<<<<<<< Updated upstream
         if (easyButton != null)
             easyButton.onClick.AddListener(StartEasy);
+=======
+        if (easyButton != null) easyButton.onClick.AddListener(StartEasy);
+        if (mediumButton != null) mediumButton.onClick.AddListener(StartMedium);
+        if (hardButton != null) hardButton.onClick.AddListener(StartHard);
+        if (expertButton != null) expertButton.onClick.AddListener(StartExpert);
+        if (backToMenuButton != null) backToMenuButton.onClick.AddListener(BackToMenu);
+        if (restartButton != null) restartButton.onClick.AddListener(RestartGame);
+>>>>>>> Stashed changes
 
         if (mediumButton != null)
             mediumButton.onClick.AddListener(StartMedium);
@@ -169,6 +202,10 @@ public class GameManager : MonoBehaviour
     // ══════════════════════════════════════════════════════
     void GeneratePuzzle()
     {
+<<<<<<< Updated upstream
+=======
+        Debug.Log("GeneratePuzzle, difficulty = " + currentDifficulty);
+>>>>>>> Stashed changes
         Debug.Log("GeneratePuzzle Called");
         isGameFinished = false;
 
@@ -243,6 +280,13 @@ public class GameManager : MonoBehaviour
         UpdateCurrentResult();
         SetFeedback("");
         UpdateQuestionUI();
+<<<<<<< Updated upstream
+=======
+
+        // 播放發牌音效
+        if (AudioManager.Instance != null)
+            AudioManager.Instance.PlayDealCardSFX();
+>>>>>>> Stashed changes
     }
 
     // ══════════════════════════════════════════════════════
@@ -339,6 +383,10 @@ public class GameManager : MonoBehaviour
             cardDraggables[handIndex].SetVisible(false);
         else if (cardImages != null && cardImages.Length > handIndex)
             cardImages[handIndex].gameObject.SetActive(false);
+
+        // 播放放牌音效
+        if (AudioManager.Instance != null)
+            AudioManager.Instance.PlayPlaceCardSFX();
     }
 
     /// <summary>
@@ -480,6 +528,14 @@ public class GameManager : MonoBehaviour
                 feedbackText.color = Color.green;
                 SetFeedback("✔ Correct!  Target reached!");
                 correctAnswers++;
+<<<<<<< Updated upstream
+=======
+
+                // 播放答對音效
+                if (AudioManager.Instance != null)
+                    AudioManager.Instance.PlayCorrectSFX();
+
+>>>>>>> Stashed changes
                 if (currentQuestion < totalQuestions)
                 {
                     currentQuestion++;
@@ -488,6 +544,7 @@ public class GameManager : MonoBehaviour
                 else
                 {
                     isGameFinished = true;
+<<<<<<< Updated upstream
 
                     resetButton.interactable = false;
                     newPuzzleButton.interactable = false;
@@ -506,6 +563,20 @@ public class GameManager : MonoBehaviour
                         $"Wrong: {wrongAnswers}  " +
                         $"Accuracy: {accuracy:F1}% " +
                         $"Time: {minutes:00}:{seconds:00}");
+=======
+                    resetButton.interactable    = false;
+                    newPuzzleButton.interactable = false;
+
+                    float totalTime    = Time.time - startTime;
+                    int   totalAttempts = correctAnswers + wrongAnswers;
+                    float accuracy     = totalAttempts > 0
+                        ? (float)correctAnswers / totalAttempts * 100f : 0f;
+                    int minutes = Mathf.FloorToInt(totalTime / 60);
+                    int seconds = Mathf.FloorToInt(totalTime % 60);
+
+                    // 顯示結束畫面
+                    ShowEndPanel(correctAnswers, wrongAnswers, accuracy, minutes, seconds);
+>>>>>>> Stashed changes
                 }
             }
             else
@@ -513,7 +584,14 @@ public class GameManager : MonoBehaviour
                 feedbackText.color = Color.red;
                 wrongAnswers++;
                 SetFeedback($"X Wrong : Result {(result % 1 == 0 ? ((int)result).ToString() : result.ToString("F2"))} ≠ Target {target}");
+<<<<<<< Updated upstream
                 
+=======
+
+                // 播放答錯音效
+                if (AudioManager.Instance != null)
+                    AudioManager.Instance.PlayWrongSFX();
+>>>>>>> Stashed changes
 
                 if (!isCheckingAnswer)
                     StartCoroutine(WrongAnswerRoutine());
@@ -810,25 +888,75 @@ public class GameManager : MonoBehaviour
 
     public void StartMedium()
     {
+<<<<<<< Updated upstream
+=======
+        Debug.Log("START Medium");
+>>>>>>> Stashed changes
         currentDifficulty = Difficulty.Medium;
         StartGame();
     }
 
     public void StartHard()
     {
+<<<<<<< Updated upstream
+=======
+        Debug.Log("START Hard");
+>>>>>>> Stashed changes
         currentDifficulty = Difficulty.Hard;
         StartGame();
     }
 
     public void StartExpert()
     {
+<<<<<<< Updated upstream
         currentDifficulty = Difficulty.Expert;
         StartGame();
     }
+=======
+        Debug.Log("START Expert");
+        currentDifficulty = Difficulty.Expert;
+        StartGame();
+    }
+    public void ShowDifficultyMenu()
+    {
+        // 播放按鈕音效
+        if (AudioManager.Instance != null)
+            AudioManager.Instance.PlayButtonClickSFX();
+
+        if (startPanel    != null) startPanel.SetActive(false);
+        if (mainMenuPanel != null) mainMenuPanel.SetActive(true);
+    }
+
+    public void OpenInstruction()
+    {
+        if (instructionPanel != null) instructionPanel.SetActive(true);
+
+        // 播放按鈕音效
+        if (AudioManager.Instance != null)
+            AudioManager.Instance.PlayButtonClickSFX();
+    }
+
+    public void CloseInstruction()
+    {
+        if (instructionPanel != null) instructionPanel.SetActive(false);
+
+        // 播放按鈕音效
+        if (AudioManager.Instance != null)
+            AudioManager.Instance.PlayButtonClickSFX();
+    }
+>>>>>>> Stashed changes
 
     public void StartGame()
     {
         Debug.Log("StartGame Called");
+<<<<<<< Updated upstream
+=======
+
+        // 播放按鈕音效
+        if (AudioManager.Instance != null)
+            AudioManager.Instance.PlayButtonClickSFX();
+
+>>>>>>> Stashed changes
         currentQuestion = 1;
         correctAnswers = 0;
         wrongAnswers = 0;
@@ -837,8 +965,50 @@ public class GameManager : MonoBehaviour
 
         mainMenuPanel.SetActive(false);
         gamePanel.SetActive(true);
+<<<<<<< Updated upstream
+=======
+        if (endPanel != null) endPanel.SetActive(false);
+>>>>>>> Stashed changes
 
         GeneratePuzzle();
     }
 
+<<<<<<< Updated upstream
 }
+=======
+    void ShowEndPanel(int correct, int wrong, float accuracy, int min, int sec)
+    {
+        if (endPanel == null) return;
+
+        endPanel.SetActive(true);
+
+        if (endSummaryText != null)
+            endSummaryText.text =
+                $"Result\n\n" +
+                $"Correct : {correct} / {totalQuestions}\n" +
+                $"Wrong : {wrong}\n" +
+                $"Accuracy : {accuracy:F1}%\n" +
+                $"Time : {min:00}:{sec:00}";
+    }
+
+    public void BackToMenu()
+    {
+        currentQuestion = 1;
+        correctAnswers  = 0;
+        wrongAnswers    = 0;
+
+        if (endPanel      != null) endPanel.SetActive(false);
+        if (gamePanel     != null) gamePanel.SetActive(false);
+        if (mainMenuPanel != null) mainMenuPanel.SetActive(false);
+        if (startPanel    != null) startPanel.SetActive(true);   // 回開始畫面
+    }
+
+    public void RestartGame()
+    {
+        if (endPanel != null) endPanel.SetActive(false);
+        StartGame(); // 用目前難度重新開始，難度已存在 currentDifficulty
+    }
+
+    }
+    
+>>>>>>> Stashed changes
