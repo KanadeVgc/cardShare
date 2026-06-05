@@ -630,20 +630,6 @@ MonoBehaviour:
     m_Y: 0
     m_Width: 62
     m_Height: 73
-<<<<<<< Updated upstream
-  m_FreeGlyphRects:
-  - m_X: 0
-    m_Y: 73
-    m_Width: 511
-    m_Height: 438
-  - m_X: 0
-    m_Y: 26
-    m_Width: 62
-    m_Height: 485
-  - m_X: 124
-    m_Y: 0
-    m_Width: 387
-=======
   - m_X: 124
     m_Y: 0
     m_Width: 83
@@ -728,7 +714,6 @@ MonoBehaviour:
   - m_X: 480
     m_Y: 0
     m_Width: 31
->>>>>>> Stashed changes
     m_Height: 511
   - m_X: 271
     m_Y: 25

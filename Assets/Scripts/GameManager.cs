@@ -53,28 +53,28 @@ public class GameManager : MonoBehaviour
     [Header("UI - Panels")]
     public GameObject mainMenuPanel;
     public GameObject gamePanel;
-<<<<<<< Updated upstream
-=======
     public GameObject startPanel; 
     public Button startButton;
-
-    [Header("UI - Instruction Panel")]
-    public GameObject instructionPanel;       // 遊戲說明面板
-    public Button openInstructionButton;      // 開啟說明按鈕
-    public Button closeInstructionButton;     // 關閉說明按鈕
+    public GameObject instructionPanel;
+    public Button openInstructionButton;
+    public Button closeInstructionButton;
 
     [Header("UI - End Panel")]
     public GameObject endPanel;
     public TextMeshProUGUI endSummaryText;
     public Button backToMenuButton;
     public Button restartButton; 
->>>>>>> Stashed changes
 
     [Header("Menu Buttons")]
     public Button easyButton;
     public Button mediumButton;
     public Button hardButton;
     public Button expertButton;
+
+    [Header("UI - Back")]
+    public Button mainMenuBackButton;
+    public Button gameBackButton;
+    public Button endBackButton;
 
     [Header("Card Data")]
     public CardData[] allCards;              // 全部 52 張牌
@@ -106,6 +106,8 @@ public class GameManager : MonoBehaviour
     private int wrongAnswers = 0;
     private float startTime;
     private bool isGameFinished = false;
+    private float lastEscTime = -1f;
+    private const float DoubleEscWindow = 0.4f;
     // ── Patterns ───────────────────────────────────────────
     string[] patterns =
     {
@@ -113,11 +115,11 @@ public class GameManager : MonoBehaviour
         "(a op1 b) op2 c op3 d",
         "a op1 (b op2 c) op3 d",
         "a op1 b op2 (c op3 d)",
-        "(a op1 b) op2 (c op3 d)"
-        // "((a op1 b) op2 c) op3 d",
-        // "(a op1 (b op2 c)) op3 d",
-        // "a op1 ((b op2 c) op3 d)",
-        // "a op1 (b op2 (c op3 d))"
+        "(a op1 b) op2 (c op3 d)",
+        "((a op1 b) op2 c) op3 d",
+        "(a op1 (b op2 c)) op3 d",
+        "a op1 ((b op2 c) op3 d)",
+        "a op1 (b op2 (c op3 d))"
     };
 
     // ══════════════════════════════════════════════════════
@@ -138,39 +140,55 @@ public class GameManager : MonoBehaviour
         if (mainMenuPanel != null) mainMenuPanel.SetActive(false);
         if (gamePanel     != null) gamePanel.SetActive(false);
         if (endPanel      != null) endPanel.SetActive(false);
-        if (instructionPanel != null) instructionPanel.SetActive(false);
         if (startButton != null) startButton.onClick.AddListener(ShowDifficultyMenu);
-        if (openInstructionButton  != null) openInstructionButton.onClick.AddListener(OpenInstruction);
-        if (closeInstructionButton != null) closeInstructionButton.onClick.AddListener(CloseInstruction);
         if (resetButton    != null) resetButton.onClick.AddListener(ResetCurrentPuzzle);
         if (newPuzzleButton != null) newPuzzleButton.onClick.AddListener(GeneratePuzzle);
-<<<<<<< Updated upstream
-        if (easyButton != null)
-            easyButton.onClick.AddListener(StartEasy);
-=======
         if (easyButton != null) easyButton.onClick.AddListener(StartEasy);
         if (mediumButton != null) mediumButton.onClick.AddListener(StartMedium);
         if (hardButton != null) hardButton.onClick.AddListener(StartHard);
         if (expertButton != null) expertButton.onClick.AddListener(StartExpert);
         if (backToMenuButton != null) backToMenuButton.onClick.AddListener(BackToMenu);
         if (restartButton != null) restartButton.onClick.AddListener(RestartGame);
->>>>>>> Stashed changes
+        if (openInstructionButton != null) openInstructionButton.onClick.AddListener(ShowInstruction);
+        if (closeInstructionButton != null) closeInstructionButton.onClick.AddListener(HideInstruction);
+        WireBack(mainMenuBackButton);
+        WireBack(gameBackButton);
+        WireBack(endBackButton);
 
-        if (mediumButton != null)
-            mediumButton.onClick.AddListener(StartMedium);
-
-        if (hardButton != null)
-            hardButton.onClick.AddListener(StartHard);
-
-        if (expertButton != null)
-            expertButton.onClick.AddListener(StartExpert);
         // 設定 SlotClickReceiver 索引
         for (int i = 0; i < slots.Length; i++)
             slots[i].slotIndex = i;
 
         startTime = Time.time;
-        mainMenuPanel.SetActive(true);
-        gamePanel.SetActive(false);
+        
+        if (startPanel == null && mainMenuPanel != null)
+        {
+            mainMenuPanel.SetActive(true);
+        }
+    }
+
+    void Update()
+    {
+        if (Input.GetKeyDown(KeyCode.Escape))
+        {
+            float now = Time.unscaledTime;
+            if (lastEscTime >= 0f && now - lastEscTime <= DoubleEscWindow)
+            {
+                lastEscTime = -1f;
+                QuitGame();
+            }
+            else
+            {
+                lastEscTime = now;
+                GoBack();
+            }
+        }
+
+        if (Input.GetKeyDown(KeyCode.Space))
+            GeneratePuzzle();
+
+        if (Input.GetKeyDown(KeyCode.R))
+            ResetCurrentPuzzle();
     }
     // void ShowPanel(GameObject panel, bool show)
     // {
@@ -188,29 +206,17 @@ public class GameManager : MonoBehaviour
     //         panel.transform.SetAsLastSibling();
     // }
 
-    void Update()
-    {
-        if (Input.GetKeyDown(KeyCode.Space))
-            GeneratePuzzle();
-
-        if (Input.GetKeyDown(KeyCode.R))
-            ResetCurrentPuzzle();
-    }
-
     // ══════════════════════════════════════════════════════
     //  Puzzle Generation
     // ══════════════════════════════════════════════════════
     void GeneratePuzzle()
     {
-<<<<<<< Updated upstream
-=======
         Debug.Log("GeneratePuzzle, difficulty = " + currentDifficulty);
->>>>>>> Stashed changes
         Debug.Log("GeneratePuzzle Called");
         isGameFinished = false;
 
-        resetButton.interactable = true;
-        newPuzzleButton.interactable = true;
+        if (resetButton != null) resetButton.interactable = true;
+        if (newPuzzleButton != null) newPuzzleButton.interactable = true;
         bool valid = false;
 
         while (!valid)
@@ -233,12 +239,10 @@ public class GameManager : MonoBehaviour
                 .Replace("op3", op3.ToString());
 
             if (HasInvalidDivision(expression)) continue;
-            if(HasNegativeIntermediate(expression)) continue;
+            if (HasNegativeIntermediate(expression)) continue;
             if (currentDifficulty == Difficulty.Expert &&
                 HasMeaninglessBrackets(expression))
-            {
                 continue;
-            }
 
             try
             {
@@ -280,13 +284,9 @@ public class GameManager : MonoBehaviour
         UpdateCurrentResult();
         SetFeedback("");
         UpdateQuestionUI();
-<<<<<<< Updated upstream
-=======
 
-        // 播放發牌音效
-        if (AudioManager.Instance != null)
-            AudioManager.Instance.PlayDealCardSFX();
->>>>>>> Stashed changes
+        // 🎵 發牌音效
+        if (AudioManager.Instance != null) AudioManager.Instance.PlayDealCardSFX();
     }
 
     // ══════════════════════════════════════════════════════
@@ -384,9 +384,8 @@ public class GameManager : MonoBehaviour
         else if (cardImages != null && cardImages.Length > handIndex)
             cardImages[handIndex].gameObject.SetActive(false);
 
-        // 播放放牌音效
-        if (AudioManager.Instance != null)
-            AudioManager.Instance.PlayPlaceCardSFX();
+        // 🎵 放牌音效
+        if (AudioManager.Instance != null) AudioManager.Instance.PlayPlaceCardSFX();
     }
 
     /// <summary>
@@ -527,15 +526,9 @@ public class GameManager : MonoBehaviour
             {
                 feedbackText.color = Color.green;
                 SetFeedback("✔ Correct!  Target reached!");
+                // 🎵 答對音效
+                if (AudioManager.Instance != null) AudioManager.Instance.PlayCorrectSFX();
                 correctAnswers++;
-<<<<<<< Updated upstream
-=======
-
-                // 播放答對音效
-                if (AudioManager.Instance != null)
-                    AudioManager.Instance.PlayCorrectSFX();
-
->>>>>>> Stashed changes
                 if (currentQuestion < totalQuestions)
                 {
                     currentQuestion++;
@@ -544,28 +537,8 @@ public class GameManager : MonoBehaviour
                 else
                 {
                     isGameFinished = true;
-<<<<<<< Updated upstream
-
-                    resetButton.interactable = false;
-                    newPuzzleButton.interactable = false;
-
-                    float totalTime = Time.time - startTime;
-                    int totlaAttempts = correctAnswers + wrongAnswers;
-                    float accuracy = totlaAttempts > 0
-                        ? (float)correctAnswers/totlaAttempts*100f
-                        :0f;
-                    int minutes = Mathf.FloorToInt(totalTime / 60);
-                    int seconds = Mathf.FloorToInt(totalTime % 60);
-                    isGameFinished = true;
-                    SetFeedback(        
-                        $"Finished! " +
-                        $"Correct: {correctAnswers}/{totalQuestions}  " +
-                        $"Wrong: {wrongAnswers}  " +
-                        $"Accuracy: {accuracy:F1}% " +
-                        $"Time: {minutes:00}:{seconds:00}");
-=======
-                    resetButton.interactable    = false;
-                    newPuzzleButton.interactable = false;
+                    if (resetButton != null) resetButton.interactable = false;
+                    if (newPuzzleButton != null) newPuzzleButton.interactable = false;
 
                     float totalTime    = Time.time - startTime;
                     int   totalAttempts = correctAnswers + wrongAnswers;
@@ -576,7 +549,6 @@ public class GameManager : MonoBehaviour
 
                     // 顯示結束畫面
                     ShowEndPanel(correctAnswers, wrongAnswers, accuracy, minutes, seconds);
->>>>>>> Stashed changes
                 }
             }
             else
@@ -584,14 +556,8 @@ public class GameManager : MonoBehaviour
                 feedbackText.color = Color.red;
                 wrongAnswers++;
                 SetFeedback($"X Wrong : Result {(result % 1 == 0 ? ((int)result).ToString() : result.ToString("F2"))} ≠ Target {target}");
-<<<<<<< Updated upstream
-                
-=======
-
-                // 播放答錯音效
-                if (AudioManager.Instance != null)
-                    AudioManager.Instance.PlayWrongSFX();
->>>>>>> Stashed changes
+                // 🎵 答錯音效
+                if (AudioManager.Instance != null) AudioManager.Instance.PlayWrongSFX();
 
                 if (!isCheckingAnswer)
                     StartCoroutine(WrongAnswerRoutine());
@@ -733,16 +699,16 @@ public class GameManager : MonoBehaviour
     {
         if (result <= 0)     return false;
         if (result % 1 != 0) return false;
-        if (result > 500) return false;
+        if (result > 500)    return false;
         return true;
     }
 
-    bool  HasNegativeIntermediate(string expr)
+    bool HasNegativeIntermediate(string expr)
     {
         try
         {
             int index = 0;
-            double result = ParseExpression(expr.Replace(" ", ""), ref index , out bool hasNegative);
+            ParseExpression(expr.Replace(" ", ""), ref index, out bool hasNegative);
             return hasNegative;
         }
         catch
@@ -750,6 +716,7 @@ public class GameManager : MonoBehaviour
             return true;
         }
     }
+
     double ParseExpression(string s, ref int index, out bool hasNegative)
     {
         double value = ParseTerm(s, ref index, out hasNegative);
@@ -759,13 +726,14 @@ public class GameManager : MonoBehaviour
             double right = ParseTerm(s, ref index, out bool rightNegative);
             hasNegative |= rightNegative;
 
-            value = op =='+' ? value + right : value - right;
+            value = op == '+' ? value + right : value - right;
 
-            if(value < 0)
+            if (value < 0)
                 hasNegative = true;
         }
         return value;
     }
+
     double ParseTerm(string s, ref int index, out bool hasNegative)
     {
         double value = ParseFactor(s, ref index, out hasNegative);
@@ -775,9 +743,9 @@ public class GameManager : MonoBehaviour
             double right = ParseFactor(s, ref index, out bool rightNegative);
             hasNegative |= rightNegative;
 
-            if (op =='/')
+            if (op == '/')
             {
-                if (right ==0)
+                if (right == 0)
                 {
                     hasNegative = true;
                     return value;
@@ -788,7 +756,8 @@ public class GameManager : MonoBehaviour
             {
                 value *= right;
             }
-            if(value < 0)
+
+            if (value < 0)
                 hasNegative = true;
         }
         return value;
@@ -797,59 +766,56 @@ public class GameManager : MonoBehaviour
     double ParseFactor(string s, ref int index, out bool hasNegative)
     {
         hasNegative = false;
-         if (s[index] == '(')
-            {
+        if (s[index] == '(')
+        {
+            index++;
+            double value = ParseExpression(s, ref index, out hasNegative);
+
+            if (index < s.Length && s[index] == ')')
                 index++;
-                double value = ParseExpression(s, ref index, out hasNegative);
 
-                if (index < s.Length && s[index] == ')')
-                    index++;
+            if (value < 0)
+                hasNegative = true;
 
-                if (value < 0)
-                    hasNegative = true;
+            return value;
+        }
 
-                return value;
-            }
-            int start = index;
-            while (index < s.Length && char.IsDigit(s[index]))
-                index++;
-            
-            return double.Parse(s.Substring(start, index - start));
+        int start = index;
+        while (index < s.Length && char.IsDigit(s[index]))
+            index++;
+
+        return double.Parse(s.Substring(start, index - start));
     }
 
-    bool  HasMeaninglessBrackets(
-            string expr)
+    bool HasMeaninglessBrackets(string expr)
     {
         if (!expr.Contains("("))
             return false;
 
-        string noBrackets = 
-                expr.Replace("(", "")
-                    .Replace(")", "");
+        string noBrackets = expr.Replace("(", "").Replace(")", "");
 
-        double original = 
-            System.Convert.ToDouble(
-                new DataTable().Compute(expr, null)
-            );
-        
-        double simplified = 
-            System.Convert.ToDouble(
-                new DataTable().Compute(noBrackets, null)
-            );
-        
+        double original = System.Convert.ToDouble(
+            new DataTable().Compute(expr, null));
+
+        double simplified = System.Convert.ToDouble(
+            new DataTable().Compute(noBrackets, null));
+
         return original == simplified;
     }
 
+    const string HiddenSlot = "?";
+
     string HideNumbers(string expr) =>
-        System.Text.RegularExpressions.Regex.Replace(expr, @"\d+", "□");
+        System.Text.RegularExpressions.Regex.Replace(expr, @"\d+", HiddenSlot);
 
     string GetDisplayExpression(string expr)
     {
+        // 使用 ASCII 運算符，避免 TMP 預設字體缺字顯示方塊
         return expr
-            .Replace("*", " × ")
-            .Replace("/", " ÷ ")
+            .Replace("*", " x ")
+            .Replace("/", " / ")
             .Replace("+", " + ")
-            .Replace("-", " − ");
+            .Replace("-", " - ");
     }
     //答錯機制
     IEnumerator WrongAnswerRoutine()
@@ -888,75 +854,33 @@ public class GameManager : MonoBehaviour
 
     public void StartMedium()
     {
-<<<<<<< Updated upstream
-=======
         Debug.Log("START Medium");
->>>>>>> Stashed changes
         currentDifficulty = Difficulty.Medium;
         StartGame();
     }
 
     public void StartHard()
     {
-<<<<<<< Updated upstream
-=======
         Debug.Log("START Hard");
->>>>>>> Stashed changes
         currentDifficulty = Difficulty.Hard;
         StartGame();
     }
 
     public void StartExpert()
     {
-<<<<<<< Updated upstream
-        currentDifficulty = Difficulty.Expert;
-        StartGame();
-    }
-=======
         Debug.Log("START Expert");
         currentDifficulty = Difficulty.Expert;
         StartGame();
     }
     public void ShowDifficultyMenu()
     {
-        // 播放按鈕音效
-        if (AudioManager.Instance != null)
-            AudioManager.Instance.PlayButtonClickSFX();
-
         if (startPanel    != null) startPanel.SetActive(false);
         if (mainMenuPanel != null) mainMenuPanel.SetActive(true);
     }
 
-    public void OpenInstruction()
-    {
-        if (instructionPanel != null) instructionPanel.SetActive(true);
-
-        // 播放按鈕音效
-        if (AudioManager.Instance != null)
-            AudioManager.Instance.PlayButtonClickSFX();
-    }
-
-    public void CloseInstruction()
-    {
-        if (instructionPanel != null) instructionPanel.SetActive(false);
-
-        // 播放按鈕音效
-        if (AudioManager.Instance != null)
-            AudioManager.Instance.PlayButtonClickSFX();
-    }
->>>>>>> Stashed changes
-
     public void StartGame()
     {
         Debug.Log("StartGame Called");
-<<<<<<< Updated upstream
-=======
-
-        // 播放按鈕音效
-        if (AudioManager.Instance != null)
-            AudioManager.Instance.PlayButtonClickSFX();
-
->>>>>>> Stashed changes
         currentQuestion = 1;
         correctAnswers = 0;
         wrongAnswers = 0;
@@ -965,17 +889,14 @@ public class GameManager : MonoBehaviour
 
         mainMenuPanel.SetActive(false);
         gamePanel.SetActive(true);
-<<<<<<< Updated upstream
-=======
         if (endPanel != null) endPanel.SetActive(false);
->>>>>>> Stashed changes
+
+        // 🎵 開始播放背景音樂
+        if (AudioManager.Instance != null) AudioManager.Instance.PlayBGM();
 
         GeneratePuzzle();
     }
 
-<<<<<<< Updated upstream
-}
-=======
     void ShowEndPanel(int correct, int wrong, float accuracy, int min, int sec)
     {
         if (endPanel == null) return;
@@ -1009,6 +930,83 @@ public class GameManager : MonoBehaviour
         StartGame(); // 用目前難度重新開始，難度已存在 currentDifficulty
     }
 
+    public void ShowInstruction()
+    {
+        if (instructionPanel != null) instructionPanel.SetActive(true);
+        if (AudioManager.Instance != null) AudioManager.Instance.PlayButtonClickSFX();
     }
+
+    public void HideInstruction()
+    {
+        if (instructionPanel != null) instructionPanel.SetActive(false);
+        if (AudioManager.Instance != null) AudioManager.Instance.PlayButtonClickSFX();
+    }
+
+    void WireBack(Button btn)
+    {
+        if (btn != null) btn.onClick.AddListener(GoBack);
+    }
+
+    /// <summary>依目前畫面返回上一層（單次 ESC 或 Back 按鈕）</summary>
+    public void GoBack()
+    {
+        if (instructionPanel != null && instructionPanel.activeSelf)
+        {
+            HideInstruction();
+            return;
+        }
+
+        if (endPanel != null && endPanel.activeSelf)
+        {
+            BackToDifficultyMenu();
+            return;
+        }
+
+        if (gamePanel != null && gamePanel.activeSelf)
+        {
+            BackToDifficultyMenu();
+            return;
+        }
+
+        if (mainMenuPanel != null && mainMenuPanel.activeSelf)
+        {
+            BackToStartPanel();
+        }
+    }
+
+    public void BackToStartPanel()
+    {
+        currentQuestion = 1;
+        correctAnswers  = 0;
+        wrongAnswers    = 0;
+
+        if (endPanel      != null) endPanel.SetActive(false);
+        if (gamePanel     != null) gamePanel.SetActive(false);
+        if (mainMenuPanel != null) mainMenuPanel.SetActive(false);
+        if (startPanel    != null) startPanel.SetActive(true);
+    }
+
+    public void BackToDifficultyMenu()
+    {
+        currentQuestion = 1;
+        correctAnswers  = 0;
+        wrongAnswers    = 0;
+
+        if (endPanel      != null) endPanel.SetActive(false);
+        if (gamePanel     != null) gamePanel.SetActive(false);
+        if (startPanel    != null) startPanel.SetActive(false);
+        if (mainMenuPanel != null) mainMenuPanel.SetActive(true);
+    }
+
+    /// <summary>連按兩次 ESC 觸發，直接退出遊戲</summary>
+    public void QuitGame()
+    {
+        if (AudioManager.Instance != null) AudioManager.Instance.StopBGM();
+#if UNITY_EDITOR
+        UnityEditor.EditorApplication.isPlaying = false;
+#else
+        Application.Quit();
+#endif
+    }
+}
     
->>>>>>> Stashed changes

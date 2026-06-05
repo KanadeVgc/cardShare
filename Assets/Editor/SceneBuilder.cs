@@ -31,16 +31,22 @@ public static class SceneBuilder
     static readonly Color C_WHITE     = Color.white;
     static readonly Color C_FAINT     = Hex("#8BAFD0");
     static readonly Color C_GREEN     = Hex("#5EE89A");
+    static readonly Color C_BTN_BACK  = Hex("#1D3D95");
+
+    const float MENU_BTN_W = 0.3f;
+    const float MENU_BTN_H = 0.08f;
+    static float CenteredMenuX() => (1f - MENU_BTN_W) * 0.5f;
 
     // ════════════════════════════════════════════════════════
     [MenuItem("CardShare/Build Scene")]
     static void BuildScene()
     {
-        // 清除舊物件
-        foreach (var name in new[]{"GameManager","Canvas","EventSystem"})
+        // 清除舊物件（Find 只會回傳第一個同名物件，需迴圈刪除全部）
+        foreach (var name in new[]{"GameManager","Canvas","EventSystem", "AudioManager"})
         {
-            var old = GameObject.Find(name);
-            if (old) Object.DestroyImmediate(old);
+            GameObject old;
+            while ((old = GameObject.Find(name)) != null)
+                Object.DestroyImmediate(old);
         }
 
         // EventSystem
@@ -59,6 +65,22 @@ public static class SceneBuilder
             Camera.main.clearFlags      = CameraClearFlags.SolidColor;
         }
 
+        // AudioManager
+        var amGO = new GameObject("AudioManager");
+        var am   = amGO.AddComponent<AudioManager>();
+
+        // ── 自動載入音效 ──────────────────────────────────────
+        am.bgmClip = AssetDatabase.LoadAssetAtPath<AudioClip>("Assets/Audio/背景音樂.mp3");
+        am.correctClip = AssetDatabase.LoadAssetAtPath<AudioClip>("Assets/Audio/答對音效.mp3");
+        am.dealCardClips = new AudioClip[]
+        {
+            AssetDatabase.LoadAssetAtPath<AudioClip>("Assets/Audio/發牌音效 1.mp3"),
+            AssetDatabase.LoadAssetAtPath<AudioClip>("Assets/Audio/發牌音效 2.mp3"),
+            AssetDatabase.LoadAssetAtPath<AudioClip>("Assets/Audio/發牌音效 3.mp3"),
+        };
+        if (am.bgmClip == null)
+            Debug.LogWarning("⚠ 找不到 Assets/Audio/背景音樂.mp3，請確認音檔存在");
+
         // Canvas（1080×1920 直式）
         var canvasGO = new GameObject("Canvas", typeof(RectTransform));
         var canvas   = canvasGO.AddComponent<Canvas>();
@@ -75,16 +97,20 @@ public static class SceneBuilder
         // ── 全畫面背景 ──
         MakeFullBG(root);
 
+        var gamePanel = CreateUIObject("GamePanel",root);
+        StretchFull(gamePanel);
+
         var mainMenuPanel = CreateUIObject("MainMenuPanel",root);
         StretchFull(mainMenuPanel);
 
+        var endPanel = CreateUIObject("EndPenal",root);
+        StretchFull(endPanel);
 
-        var gamePanel = CreateUIObject("GamePanel",root);
-        StretchFull(gamePanel);
-   
+        var startPanel = CreateUIObject("StartPanel",root);
+        StretchFull(startPanel);
 
-        mainMenuPanel.gameObject.SetActive(true);
-        gamePanel.gameObject.SetActive(false);
+        var instructionPanel = CreateUIObject("InstructionPanel",root);
+        StretchFull(instructionPanel);
         
 
 
@@ -92,7 +118,7 @@ public static class SceneBuilder
         var infoPanel   = BuildInfoPanel(gamePanel);
         var handPanel   = BuildHandPanel(gamePanel);
         var slotPanel   = BuildSlotPanel(gamePanel);
-        var btnPanel    = BuildButtonPanel(gamePanel);
+        var btnPanel    = BuildButtonPanel(gamePanel, gm);
 
         // ── 取得元件 ──
         var targetTMP  = infoPanel.Find("TargetText")       .GetComponent<TextMeshProUGUI>();
@@ -131,6 +157,9 @@ public static class SceneBuilder
         gm.feedbackText      = fbTMP;
         gm.mainMenuPanel = mainMenuPanel.gameObject;
         gm.gamePanel = gamePanel.gameObject;   
+        gm.endPanel = endPanel.gameObject;
+        gm.startPanel = startPanel.gameObject;
+        gm.instructionPanel = instructionPanel.gameObject;
         gm.questionText      = questionTMP;
         gm.cardImages        = cardImages;
         gm.cardDraggables    = cardDraggables;
@@ -149,8 +178,15 @@ public static class SceneBuilder
             $"✅ 建置成功！載入 {allCards.Length} 張牌。\n\n" +
             "按 ▶ Play 開始遊戲。\n\n快捷鍵：\n  Space = 新題目\n  R = 重置", "OK");
         BuildMainMenu(mainMenuPanel, gm);
+        BuildEndPanel(endPanel, gm);
+        BuildStartPanel(startPanel, gm);
+        BuildInstructionPanel(instructionPanel, gm);
 
-        mainMenuPanel.SetAsLastSibling();
+        startPanel.gameObject.SetActive(true);
+        mainMenuPanel.gameObject.SetActive(false);
+        gamePanel.gameObject.SetActive(false);
+        endPanel.gameObject.SetActive(false);
+        instructionPanel.gameObject.SetActive(false);
     }
 
     // ════════════════════════════════════════════════════════
@@ -183,7 +219,7 @@ public static class SceneBuilder
             0f, 0.70f, 1f, 1.0f, 64, C_GOLD, FontStyles.Bold, TextAlignmentOptions.Center);
 
         // ExpressionText
-        MakeTMP(panel, "ExpressionText", "□ + □ − □ × □",
+        MakeTMP(panel, "ExpressionText", "? + ? - ? x ?",
             0f, 0.38f, 1f, 0.72f, 42, C_FAINT, FontStyles.Normal, TextAlignmentOptions.Center);
 
         // CurrentResultText
@@ -327,15 +363,17 @@ public static class SceneBuilder
     // ════════════════════════════════════════════════════════
     //  Button Panel  (最底 1%–7%)
     // ════════════════════════════════════════════════════════
-    static Transform BuildButtonPanel(Transform root)
+    static Transform BuildButtonPanel(Transform root, GameManager gm)
     {
         var panel = MakePanel(root, "ButtonPanel",
             0.04f, 0.01f, 0.96f, 0.07f, new Color(0, 0, 0, 0), 0f);
 
         MakeButton(panel, "ResetButton",    "Reset",
-            0.02f, 0f, 0.48f, 1f, C_BTN_RESET);
+            0.02f, 0f, 0.32f, 1f, C_BTN_RESET);
         MakeButton(panel, "NewPuzzleButton", "New Puzzle",
-            0.52f, 0f, 0.98f, 1f, C_BTN_NEW);
+            0.35f, 0f, 0.65f, 1f, C_BTN_NEW);
+        gm.gameBackButton = MakeBackButton(panel, "BackButton", "Back",
+            0.68f, 0f, 0.98f, 1f);
 
         return panel;
     }
@@ -466,6 +504,33 @@ public static class SceneBuilder
         tmp.raycastTarget = false;
     }
 
+    static Button MakeBackButton(Transform parent, string name, string label,
+        float xMin, float yMin, float xMax, float yMax)
+    {
+        var go  = new GameObject(name);
+        go.transform.SetParent(parent, false);
+        var r   = go.AddComponent<RectTransform>();
+        r.anchorMin = new Vector2(xMin, yMin);
+        r.anchorMax = new Vector2(xMax, yMax);
+        r.offsetMin = r.offsetMax = Vector2.zero;
+
+        var img  = go.AddComponent<Image>();
+        img.color = C_BTN_BACK;
+
+        var btn = go.AddComponent<Button>();
+        btn.targetGraphic = img;
+        var cb  = ColorBlock.defaultColorBlock;
+        cb.normalColor      = C_BTN_BACK;
+        cb.highlightedColor = C_BTN_BACK * 1.25f;
+        cb.pressedColor     = C_BTN_BACK * 0.65f;
+        btn.colors          = cb;
+
+        MakeTMP(go.transform, "Text", label,
+            0f, 0f, 1f, 1f, 36, C_WHITE, FontStyles.Bold, TextAlignmentOptions.Center);
+
+        return btn;
+    }
+
     // ════════════════════════════════════════════════════════
     //  顏色工具
     // ════════════════════════════════════════════════════════
@@ -474,41 +539,191 @@ public static class SceneBuilder
         ColorUtility.TryParseHtmlString(hex, out var c);
         return c;
     }
+    static void BuildStartPanel(Transform panel, GameManager gm)
+    {
+        // ── 背景圖 ──
+        var bgSprite = EnsureSprite("Assets/Sprites/game_start_background.png");
+        if (bgSprite != null)
+        {
+            var bgGO = CreateUIObject("StartBackground", panel);
+            SetAnchor(bgGO, 0f, 0f, 1f, 1f);
+            var bgImg = bgGO.gameObject.AddComponent<Image>();
+            bgImg.sprite = bgSprite;
+            bgImg.type = Image.Type.Simple;
+            bgImg.preserveAspect = false;
+            bgGO.SetAsFirstSibling();
+        }
+
+        // ── 標題 ──
+        MakeTMP(panel, "Title", "Puzzle Mystery",
+            0.05f, 0.62f, 0.95f, 0.88f,
+            96, C_GOLD, FontStyles.Bold, TextAlignmentOptions.Center);
+
+        // ── Start 按鈕 ──
+        var startBtn = CreateMenuButton(panel, gm, "StartButton", "Start Game", CenteredMenuX(), 0.38f, GameManager.Difficulty.Easy);
+        gm.startButton = startBtn;
+
+        // ── Instructions 按鈕 ──
+        var btn2 = CreateMenuButton(panel, gm, "OpenInstructionButton", "Instructions", CenteredMenuX(), 0.24f, GameManager.Difficulty.Easy);
+        gm.openInstructionButton = btn2;
+
+    }
+
+    static void BuildEndPanel(Transform panel, GameManager gm)
+    {
+        var summaryGO = MakeTMP(panel, "EndSummaryText", "Result", 0.1f, 0.3f, 0.9f, 0.8f, 48, C_WHITE, FontStyles.Bold, TextAlignmentOptions.Center);
+        gm.endSummaryText = summaryGO.GetComponent<TextMeshProUGUI>();
+
+        var backBtn = CreateMenuButton(panel, gm, "BackToMenuButton", "Main Menu", 0.05f, 0.1f, GameManager.Difficulty.Easy);
+        gm.backToMenuButton = backBtn;
+
+        var restartBtn = CreateMenuButton(panel, gm, "RestartButton", "Restart", 0.37f, 0.1f, GameManager.Difficulty.Easy);
+        gm.restartButton = restartBtn;
+
+        gm.endBackButton = MakeBackButton(panel, "EndBackButton", "Back", 0.69f, 0.1f, 0.99f, 0.18f);
+    }
+
+    static void BuildInstructionPanel(Transform panel, GameManager gm)
+    {
+        // 半透明遮罩
+        var overlay = CreateUIObject("Overlay", panel);
+        SetAnchor(overlay, 0f, 0f, 1f, 1f);
+        overlay.gameObject.AddComponent<Image>().color = new Color(0, 0, 0, 0.8f);
+
+        // 說明圖片
+        var sprite = EnsureSprite("Assets/Sprites/game_instruction.png");
+        var img = CreateUIObject("InstructionImage", panel);
+        SetAnchor(img, 0.1f, 0.2f, 0.9f, 0.9f);
+        var imgComp = img.gameObject.AddComponent<Image>();
+        if (sprite != null)
+        {
+            imgComp.sprite = sprite;
+            imgComp.type = Image.Type.Simple;
+            imgComp.preserveAspect = true;
+            imgComp.color = Color.white;
+        }
+        else
+        {
+            Debug.LogWarning("⚠ 找不到 Assets/Sprites/game_instruction.png");
+            imgComp.color = new Color(0.2f, 0.2f, 0.2f, 0.9f);
+        }
+        imgComp.raycastTarget = false;
+
+        var closeBtn = CreateUIObject("CloseInstructionButton", panel);
+        SetAnchor(closeBtn, 0.4f, 0.05f, 0.6f, 0.15f);
+        var btnImg = closeBtn.gameObject.AddComponent<Image>();
+        btnImg.color = Color.red;
+        var btn = closeBtn.gameObject.AddComponent<Button>();
+        btn.targetGraphic = btnImg;
+        
+        MakeTMP(closeBtn, "Text", "Close", 0f, 0f, 1f, 1f, 36, C_WHITE, FontStyles.Bold, TextAlignmentOptions.Center);
+        gm.closeInstructionButton = btn;
+    }
+
     static void BuildMainMenu(Transform root, GameManager gm)
     {
-        MakeTMP(root,
-            "Title",
-            "Puzzle Mystery",
-            0.2f, 0.72f, 0.8f, 0.9f,
-            72,
-            C_GOLD,
-            FontStyles.Bold,
-            TextAlignmentOptions.Center);
+        // ── 背景圖（確保 Sprite 匯入設定正確）──
+        var bgSprite = EnsureSprite("Assets/Sprites/game_start_background.png");
+        if (bgSprite != null)
+        {
+            var bgGO = CreateUIObject("MenuBackground", root);
+            SetAnchor(bgGO, 0f, 0f, 1f, 1f);
+            var bgImg = bgGO.gameObject.AddComponent<Image>();
+            bgImg.sprite = bgSprite;
+            bgImg.type = Image.Type.Simple;
+            bgImg.preserveAspect = false;
+            bgGO.SetAsFirstSibling();
+        }
+        else Debug.LogWarning("⚠ 找不到 Assets/Sprites/game_start_background.png");
 
-        gm.easyButton =
-            CreateMenuButton(root, gm,
-            "EasyButton", "Easy",
-            0.35f, 0.52f,
-            GameManager.Difficulty.Easy);
+        // ── 標題 ──
+        MakeTMP(root, "Title", "Puzzle Mystery",
+            0.1f, 0.78f, 0.9f, 0.95f,
+            80, C_GOLD, FontStyles.Bold, TextAlignmentOptions.Center);
 
-        gm.mediumButton =
-            CreateMenuButton(root, gm,
-            "MediumButton", "Medium",
-            0.35f, 0.40f,
-            GameManager.Difficulty.Medium);
+        // ── 難度卡片路徑 ──
+        var cards = new[]
+        {
+            ("EasyButton",   "Assets/Sprites/four_level_cards/easy_簡單.png"),
+            ("MediumButton", "Assets/Sprites/four_level_cards/normal_普通.png"),
+            ("HardButton",   "Assets/Sprites/four_level_cards/hard_困難.png"),
+            ("ExpertButton", "Assets/Sprites/four_level_cards/expert_專家.png"),
+        };
 
-        gm.hardButton =
-            CreateMenuButton(root, gm,
-            "HardButton", "Hard",
-            0.35f, 0.28f,
-            GameManager.Difficulty.Hard);
+        // 2×2 格局錨點
+        float[,] anchors = {
+            { 0.04f, 0.42f, 0.49f, 0.76f },   // 左上 Easy
+            { 0.51f, 0.42f, 0.96f, 0.76f },   // 右上 Medium
+            { 0.04f, 0.06f, 0.49f, 0.40f },   // 左下 Hard
+            { 0.51f, 0.06f, 0.96f, 0.40f },   // 右下 Expert
+        };
 
-        gm.expertButton =
-            CreateMenuButton(root, gm,
-            "ExpertButton", "Expert",
-            0.35f, 0.16f,
-            GameManager.Difficulty.Expert);
+        for (int i = 0; i < cards.Length; i++)
+        {
+            var (name, spritePath) = cards[i];
+
+            // 強制設定 TextureType = Sprite
+            var sprite = EnsureSprite(spritePath);
+            if (sprite == null)
+                Debug.LogWarning($"⚠ 找不到難度圖片：{spritePath}");
+
+            var cardGO = CreateUIObject(name, root);
+            SetAnchor(cardGO, anchors[i,0], anchors[i,1], anchors[i,2], anchors[i,3]);
+
+            var cardImg = cardGO.gameObject.AddComponent<Image>();
+            if (sprite != null)
+            {
+                cardImg.sprite = sprite;
+                cardImg.type = Image.Type.Simple;
+                cardImg.preserveAspect = true;
+                cardImg.color = Color.white;
+            }
+            else
+            {
+                cardImg.color = new Color(0.1f, 0.25f, 0.6f);
+            }
+
+            var btn = cardGO.gameObject.AddComponent<Button>();
+            btn.targetGraphic = cardImg;
+            var cb = ColorBlock.defaultColorBlock;
+            cb.normalColor      = Color.white;
+            cb.highlightedColor = new Color(1f, 1f, 1f, 0.85f);
+            cb.pressedColor     = new Color(0.75f, 0.75f, 0.75f, 1f);
+            btn.colors = cb;
+
+            switch (i)
+            {
+                case 0: gm.easyButton   = btn; break;
+                case 1: gm.mediumButton = btn; break;
+                case 2: gm.hardButton   = btn; break;
+                case 3: gm.expertButton = btn; break;
+            }
+            Debug.Log($"🃏 {name}：{(sprite != null ? "✅" : "❌ 無圖片")}");
+        }
+
+        gm.mainMenuBackButton = MakeBackButton(root, "MainMenuBackButton", "Back",
+            0.82f, 0.94f, 0.98f, 0.99f);
     }
+
+    /// <summary>
+    /// 確保圖片被匯入為 Sprite 類型，並回傳 Sprite 參考。
+    /// </summary>
+    static Sprite EnsureSprite(string assetPath)
+    {
+        var importer = AssetImporter.GetAtPath(assetPath) as TextureImporter;
+        if (importer != null && importer.textureType != TextureImporterType.Sprite)
+        {
+            importer.textureType      = TextureImporterType.Sprite;
+            importer.spriteImportMode = SpriteImportMode.Single;
+            importer.alphaIsTransparency = true;
+            AssetDatabase.ImportAsset(assetPath,
+                ImportAssetOptions.ForceUpdate |
+                ImportAssetOptions.ForceSynchronousImport);
+            Debug.Log($"🔄 已重新匯入為 Sprite：{assetPath}");
+        }
+        return AssetDatabase.LoadAssetAtPath<Sprite>(assetPath);
+    }
+
 
    static Button CreateMenuButton(
         Transform root,
@@ -521,7 +736,7 @@ public static class SceneBuilder
     {
         var btnGO = CreateUIObject(name, root);
 
-        SetAnchor(btnGO, x, y, x + 0.3f, y + 0.08f);
+        SetAnchor(btnGO, x, y, x + MENU_BTN_W, y + MENU_BTN_H);
 
         var img = btnGO.gameObject.AddComponent<Image>();
         img.color = new Color(0.1f, 0.25f, 0.6f);

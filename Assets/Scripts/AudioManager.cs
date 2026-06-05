@@ -10,6 +10,7 @@ using UnityEngine;
 ///   3. 在 Inspector 中把 Assets/Audio 裡的音檔拖進對應欄位
 ///   4. GameManager 會透過 AudioManager.Instance 呼叫播放方法
 /// </summary>
+[DefaultExecutionOrder(-100)]   // 確保比 GameManager(-99 以下) 更早 Awake
 public class AudioManager : MonoBehaviour
 {
     // ── Singleton ─────────────────────────────────────────
@@ -72,6 +73,7 @@ public class AudioManager : MonoBehaviour
             bgmSource.loop = true;
             bgmSource.playOnAwake = false;
         }
+        bgmSource.spatialBlend = 0f;   // 強制 2D 播放，避免 3D 音效聽不到
 
         if (sfxSource == null)
         {
@@ -79,12 +81,13 @@ public class AudioManager : MonoBehaviour
             sfxSource.loop = false;
             sfxSource.playOnAwake = false;
         }
+        sfxSource.spatialBlend = 0f;
     }
 
     void Start()
     {
-        // 遊戲啟動後自動播放背景音樂
         PlayBGM();
+        Debug.Log($"🎵 AudioManager ready — BGM clip: {(bgmClip != null ? bgmClip.name : "null")}");
     }
 
     // ══════════════════════════════════════════════════════
@@ -94,11 +97,17 @@ public class AudioManager : MonoBehaviour
     /// <summary>播放背景音樂（循環）</summary>
     public void PlayBGM()
     {
-        if (bgmClip == null || bgmSource == null) return;
+        if (bgmSource == null) return;
+        if (bgmClip == null)
+        {
+            Debug.LogWarning("⚠ AudioManager：bgmClip 未指定，無法播放背景音樂");
+            return;
+        }
 
-        bgmSource.clip   = bgmClip;
-        bgmSource.volume = bgmVolume;
-        bgmSource.loop   = true;
+        bgmSource.clip        = bgmClip;
+        bgmSource.volume      = bgmVolume;
+        bgmSource.loop        = true;
+        bgmSource.spatialBlend = 0f;
 
         if (!bgmSource.isPlaying)
             bgmSource.Play();

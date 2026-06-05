@@ -5,11 +5,7 @@ fetchPreview = true
 defaultFlags = 0
 keepOpen = true
 queryFolder = "Assets"
-<<<<<<< Updated upstream
-onBoardingDoNotAskAgain = false
-=======
 onBoardingDoNotAskAgain = true
->>>>>>> Stashed changes
 showPackageIndexes = false
 showStatusBar = false
 scopes = {
