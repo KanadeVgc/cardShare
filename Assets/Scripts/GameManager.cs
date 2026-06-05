@@ -115,11 +115,11 @@ public class GameManager : MonoBehaviour
         "(a op1 b) op2 c op3 d",
         "a op1 (b op2 c) op3 d",
         "a op1 b op2 (c op3 d)",
-        "(a op1 b) op2 (c op3 d)",
-        "((a op1 b) op2 c) op3 d",
-        "(a op1 (b op2 c)) op3 d",
-        "a op1 ((b op2 c) op3 d)",
-        "a op1 (b op2 (c op3 d))"
+        "(a op1 b) op2 (c op3 d)"
+        // "((a op1 b) op2 c) op3 d",
+        // "(a op1 (b op2 c)) op3 d",
+        // "a op1 ((b op2 c) op3 d)",
+        // "a op1 (b op2 (c op3 d))"
     };
 
     // ══════════════════════════════════════════════════════
@@ -803,7 +803,7 @@ public class GameManager : MonoBehaviour
         return original == simplified;
     }
 
-    const string HiddenSlot = "?";
+    const string HiddenSlot = "□";
 
     string HideNumbers(string expr) =>
         System.Text.RegularExpressions.Regex.Replace(expr, @"\d+", HiddenSlot);
