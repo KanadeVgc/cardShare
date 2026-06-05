@@ -97,11 +97,11 @@ public class GameManager : MonoBehaviour
         "(a op1 b) op2 c op3 d",
         "a op1 (b op2 c) op3 d",
         "a op1 b op2 (c op3 d)",
-        "(a op1 b) op2 (c op3 d)",
-        "((a op1 b) op2 c) op3 d",
-        "(a op1 (b op2 c)) op3 d",
-        "a op1 ((b op2 c) op3 d)",
-        "a op1 (b op2 (c op3 d))"
+        "(a op1 b) op2 (c op3 d)"
+        // "((a op1 b) op2 c) op3 d",
+        // "(a op1 (b op2 c)) op3 d",
+        // "a op1 ((b op2 c) op3 d)",
+        // "a op1 (b op2 (c op3 d))"
     };
 
     // ══════════════════════════════════════════════════════
@@ -196,6 +196,12 @@ public class GameManager : MonoBehaviour
                 .Replace("op3", op3.ToString());
 
             if (HasInvalidDivision(expression)) continue;
+            if(HasNegativeIntermediate(expression)) continue;
+            if (currentDifficulty == Difficulty.Expert &&
+                HasMeaninglessBrackets(expression))
+            {
+                continue;
+            }
 
             try
             {
@@ -649,7 +655,111 @@ public class GameManager : MonoBehaviour
     {
         if (result <= 0)     return false;
         if (result % 1 != 0) return false;
+        if (result > 500) return false;
         return true;
+    }
+
+    bool  HasNegativeIntermediate(string expr)
+    {
+        try
+        {
+            int index = 0;
+            double result = ParseExpression(expr.Replace(" ", ""), ref index , out bool hasNegative);
+            return hasNegative;
+        }
+        catch
+        {
+            return true;
+        }
+    }
+    double ParseExpression(string s, ref int index, out bool hasNegative)
+    {
+        double value = ParseTerm(s, ref index, out hasNegative);
+        while (index < s.Length && (s[index] == '+' || s[index] == '-'))
+        {
+            char op = s[index++];
+            double right = ParseTerm(s, ref index, out bool rightNegative);
+            hasNegative |= rightNegative;
+
+            value = op =='+' ? value + right : value - right;
+
+            if(value < 0)
+                hasNegative = true;
+        }
+        return value;
+    }
+    double ParseTerm(string s, ref int index, out bool hasNegative)
+    {
+        double value = ParseFactor(s, ref index, out hasNegative);
+        while (index < s.Length && (s[index] == '*' || s[index] == '/'))
+        {
+            char op = s[index++];
+            double right = ParseFactor(s, ref index, out bool rightNegative);
+            hasNegative |= rightNegative;
+
+            if (op =='/')
+            {
+                if (right ==0)
+                {
+                    hasNegative = true;
+                    return value;
+                }
+                value /= right;
+            }
+            else
+            {
+                value *= right;
+            }
+            if(value < 0)
+                hasNegative = true;
+        }
+        return value;
+    }
+
+    double ParseFactor(string s, ref int index, out bool hasNegative)
+    {
+        hasNegative = false;
+         if (s[index] == '(')
+            {
+                index++;
+                double value = ParseExpression(s, ref index, out hasNegative);
+
+                if (index < s.Length && s[index] == ')')
+                    index++;
+
+                if (value < 0)
+                    hasNegative = true;
+
+                return value;
+            }
+            int start = index;
+            while (index < s.Length && char.IsDigit(s[index]))
+                index++;
+            
+            return double.Parse(s.Substring(start, index - start));
+    }
+
+    bool  HasMeaninglessBrackets(
+            string expr)
+    {
+        if (!expr.Contains("("))
+            return false;
+
+        string noBrackets = 
+                expr.Replace("(", "")
+                    .Replace(")", "");
+
+        double original = 
+            System.Convert.ToDouble(
+                new DataTable().Compute(expr, null)
+            );
+        
+        double simplified = 
+            System.Convert.ToDouble(
+                new DataTable().Compute(noBrackets, null)
+            );
+        
+        return original == simplified;
     }
 
     string HideNumbers(string expr) =>
