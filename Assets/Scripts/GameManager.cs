@@ -813,7 +813,7 @@ public class GameManager : MonoBehaviour
         // 使用 ASCII 運算符，避免 TMP 預設字體缺字顯示方塊
         return expr
             .Replace("*", " x ")
-            .Replace("/", " / ")
+            .Replace("/", "  ÷  ")
             .Replace("+", " + ")
             .Replace("-", " - ");
     }

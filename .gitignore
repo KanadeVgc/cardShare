@@ -5,3 +5,10 @@
 [Ll]ogs/
 UserSettings/
 MemoryCaptures/
+
+
+.vs/
+.vscode/
+
+*.csproj
+*.sln
