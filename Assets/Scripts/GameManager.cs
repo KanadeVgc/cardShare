@@ -4,6 +4,8 @@ using System.Data;
 using UnityEngine;
 using UnityEngine.UI;
 using TMPro;
+using System.IO;
+using System.Text;
 
 // ══════════════════════════════════════════════════════════
 //  CardData
@@ -38,6 +40,7 @@ public class GameManager : MonoBehaviour
     public TextMeshProUGUI currentResultText; // 即時顯示 Current Result
     public TextMeshProUGUI feedbackText;    // 成功 / 錯誤 提示
     public TextMeshProUGUI questionText;      //題數
+    public TextMeshProUGUI difficultyText;//難度
 
     [Header("UI - Hand Cards")]
     public Image[] cardImages;               // 4 張手牌圖片
@@ -64,6 +67,7 @@ public class GameManager : MonoBehaviour
     public TextMeshProUGUI endSummaryText;
     public Button backToMenuButton;
     public Button restartButton; 
+    public Button exportExcelButton;
 
     [Header("Menu Buttons")]
     public Button easyButton;
@@ -104,10 +108,17 @@ public class GameManager : MonoBehaviour
 
     //時間與答錯幾題
     private int wrongAnswers = 0;
+    private int resetCount = 0; 
+    private int newPuzzleCount = 0; 
     private float startTime;
     private bool isGameFinished = false;
     private float lastEscTime = -1f;
     private const float DoubleEscWindow = 0.4f;
+    private int _cacheCorrect;
+    private int _cacheWrong;
+    private float _cacheAccuracy;
+    private int _cacheMin;
+    private int _cacheSec;
     // ── Patterns ───────────────────────────────────────────
     string[] patterns =
     {
@@ -141,8 +152,16 @@ public class GameManager : MonoBehaviour
         if (gamePanel     != null) gamePanel.SetActive(false);
         if (endPanel      != null) endPanel.SetActive(false);
         if (startButton != null) startButton.onClick.AddListener(ShowDifficultyMenu);
-        if (resetButton    != null) resetButton.onClick.AddListener(ResetCurrentPuzzle);
-        if (newPuzzleButton != null) newPuzzleButton.onClick.AddListener(GeneratePuzzle);
+        if (resetButton != null) resetButton.onClick.AddListener(() =>
+        {
+            resetCount++;
+            ResetCurrentPuzzle();
+        });
+        if (newPuzzleButton != null) newPuzzleButton.onClick.AddListener(() =>
+        {
+            newPuzzleCount++;
+            GeneratePuzzle();
+        });
         if (easyButton != null) easyButton.onClick.AddListener(StartEasy);
         if (mediumButton != null) mediumButton.onClick.AddListener(StartMedium);
         if (hardButton != null) hardButton.onClick.AddListener(StartHard);
@@ -188,7 +207,10 @@ public class GameManager : MonoBehaviour
             GeneratePuzzle();
 
         if (Input.GetKeyDown(KeyCode.R))
+        {
+            resetCount++;
             ResetCurrentPuzzle();
+        }
     }
     // void ShowPanel(GameObject panel, bool show)
     // {
@@ -606,6 +628,9 @@ public class GameManager : MonoBehaviour
     {
         if (targetText     != null) targetText.text     = "Target : " + target;
         if (expressionText != null) expressionText.text = GetDisplayExpression(hiddenExpression);
+        if (difficultyText != null) {
+            difficultyText.text = currentDifficulty.ToString();
+        }
     }
 
     void UpdateCardsUI()
@@ -884,6 +909,8 @@ public class GameManager : MonoBehaviour
         currentQuestion = 1;
         correctAnswers = 0;
         wrongAnswers = 0;
+        resetCount = 0;
+        newPuzzleCount = 0;
 
         startTime = Time.time;
 
@@ -903,13 +930,94 @@ public class GameManager : MonoBehaviour
 
         endPanel.SetActive(true);
 
+        // 1. 隱藏的按鈕拉出來顯示，並動態綁定點擊事件
+        if (exportExcelButton != null)
+        {
+            exportExcelButton.gameObject.SetActive(true);
+            exportExcelButton.onClick.RemoveAllListeners(); // 清除舊的，防止重玩時重複綁定
+            exportExcelButton.onClick.AddListener(ExportToExcel); // 綁定下方建立的導出 Function
+        }
+
+        // 2. 將傳進來的數據存入類別變數，方便 ExportToExcel 讀取
+        _cacheCorrect = correct;
+        _cacheWrong = wrong;
+        _cacheAccuracy = accuracy;
+        _cacheMin = min;
+        _cacheSec = sec;
+
         if (endSummaryText != null)
             endSummaryText.text =
-                $"Result\n\n" +
+                $"Result\n" +
+                $"Difficulty : {difficultyText.text}\n" +
                 $"Correct : {correct} / {totalQuestions}\n" +
                 $"Wrong : {wrong}\n" +
+                $"Reset : {resetCount}\n" +  
+                $"Skip : {newPuzzleCount}\n" +
                 $"Accuracy : {accuracy:F1}%\n" +
                 $"Time : {min:00}:{sec:00}";
+    }
+    private void ExportToExcel()
+    {
+        // 1. 準備欄位標頭與真實時間戳
+        string header = "No.,Difficulty,Total Questions,Correct,Wrong,Reset,Skip,Accuracy,Time,Timestamp\n";
+        string currentTimestamp = System.DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss");
+        string timeStr = $"{_cacheMin:00}:{_cacheSec:00}";
+        
+        int currentNo = 1;
+        string dataLine = "";
+
+        // ── 【情況 A：WebGL 網頁版執行邏輯】 ──
+#if UNITY_WEBGL && !UNITY_EDITOR
+        dataLine = $"{currentNo},{difficultyText.text},{totalQuestions},{_cacheCorrect},{_cacheWrong},{resetCount},{newPuzzleCount},{_cacheAccuracy:F1}%,{timeStr},{currentTimestamp}\n";
+        string fileContent = header + dataLine;
+
+        // 核心修正：利用純 C# 將文字轉為 Base64 編碼，並加上防亂碼的 BOM 頭 (\uFEFF)
+        // 這樣可以直接調用瀏覽器跳轉下載，100% 不會導致 WebGL 打包失敗
+        byte[] utf8Bytes = System.Text.Encoding.UTF8.GetBytes(fileContent);
+        byte[] bomBytes = new byte[] { 0xEF, 0xBB, 0xBF };
+        byte[] finalBytes = new byte[bomBytes.Length + utf8Bytes.Length];
+        System.Buffer.BlockCopy(bomBytes, 0, finalBytes, 0, bomBytes.Length);
+        System.Buffer.BlockCopy(utf8Bytes, 0, finalBytes, bomBytes.Length, utf8Bytes.Length);
+        
+        string base64Data = System.Convert.ToBase64String(finalBytes);
+        string dataUrl = "data:text/csv;charset=utf-8;base64," + base64Data;
+
+        // 叫瀏覽器直接開啟這個資料網址，就會立刻觸發 Excel 檔案下載
+        Application.OpenURL(dataUrl);
+        
+        Debug.Log("【網頁輸出】已透過 Data URL 觸發下載");
+        if (exportExcelButton != null) exportExcelButton.interactable = false;
+        return;
+#endif
+
+        // ── 【情況 B：Mac 電腦本機/編輯器執行邏輯】（維持原樣，不影響功能） ──
+        string filePath = Path.Combine(Application.dataPath, "../GameResults.csv");
+        try
+        {
+            if (File.Exists(filePath))
+            {
+                string[] lines = File.ReadAllLines(filePath);
+                if (lines.Length > 0) currentNo = lines.Length;
+            }
+
+            dataLine = $"{currentNo},{difficultyText.text},{totalQuestions},{_cacheCorrect},{_cacheWrong},{resetCount},{newPuzzleCount},{_cacheAccuracy:F1}%,{timeStr},{currentTimestamp}\n";
+
+            if (!File.Exists(filePath))
+            {
+                File.WriteAllText(filePath, header + dataLine, new UTF8Encoding(true));
+            }
+            else
+            {
+                File.AppendAllText(filePath, dataLine, new UTF8Encoding(true));
+            }
+
+            Debug.Log($"【本機輸出成功】成績已儲存至: {filePath}，編號: {currentNo}");
+            if (exportExcelButton != null) exportExcelButton.interactable = false;
+        }
+        catch (System.Exception e)
+        {
+            Debug.LogError($"【本機輸出失敗】無法寫入檔案: {e.Message}");
+        }
     }
 
     public void BackToMenu()
@@ -926,8 +1034,9 @@ public class GameManager : MonoBehaviour
 
     public void RestartGame()
     {
+        if (exportExcelButton != null) exportExcelButton.interactable = true; // 👈 新增這行：重置按鈕可點擊狀態
         if (endPanel != null) endPanel.SetActive(false);
-        StartGame(); // 用目前難度重新開始，難度已存在 currentDifficulty
+        StartGame(); 
     }
 
     public void ShowInstruction()
